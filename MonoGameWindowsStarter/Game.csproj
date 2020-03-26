@@ -53,6 +53,8 @@
     <Compile Include="iCollidable.cs" />
     <Compile Include="iUpdateable.cs" />
     <Compile Include="Maze.cs" />
+    <Compile Include="Particle.cs" />
+    <Compile Include="ParticleSystem.cs" />
     <Compile Include="Player.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
@@ -82,7 +84,7 @@
     <Content Include="Level2WallPlacements.txt" />
     <Content Include="Level3SpikePlacements.txt" />
     <Content Include="Level3WallPlacements.txt" />
-    <Content Include="Possible Game Project 4 Implementations.txt" />
+    <Content Include="Possible Game Project 6 Implementations.txt" />
     <EmbeddedResource Include="Resources\Level3WallPlacements.txt" />
     <EmbeddedResource Include="Resources\Level3SpikePlacements.txt" />
     <EmbeddedResource Include="Resources\Level2WallPlacements.txt" />

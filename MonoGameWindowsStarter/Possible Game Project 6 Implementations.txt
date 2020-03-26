@@ -1,0 +1,8 @@
+﻿Particle System Ideas:
+
+	- Have player kick up dust when moving (sprinting)
+		NOT DONE
+	- On bombs exploding
+		NOT DONE
+	- On wall being bombed
+		NOT DONE
