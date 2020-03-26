@@ -95,6 +95,11 @@ namespace MonoGameWindowsStarter
         public SpeedState speed_state;
         TimeSpan flashTimer = new TimeSpan(0);
         Color staminaColor = new Color(0, 0, 60);
+        Vector2 dirtOrigin = Vector2.Zero;
+        ParticleSystem dirtParticleSystem;
+        Texture2D dirtParticle;
+        Random random = new Random();
+        TimeSpan dirtTimer = new TimeSpan(0);
 
 
         /// <summary>
@@ -131,6 +136,9 @@ namespace MonoGameWindowsStarter
             staminaBar = game.Content.Load<Texture2D>("powerUpBarProgress");
             staminaBarBack = game.Content.Load<Texture2D>("powerUpBarBack");
             bomb.LoadContent();
+
+            dirtParticle = game.Content.Load<Texture2D>("particle");
+            dirtParticleSystem = newDirtParticleSystem(game.GraphicsDevice, 1, dirtParticle, Vector2.Zero);
         }
 
         /// <summary>
@@ -213,35 +221,52 @@ namespace MonoGameWindowsStarter
             if (stamina == MAX_STAMINA) staminaBarSize = 100;
             else staminaBarSize = (int)(100 * (stamina / MAX_STAMINA));
 
+            // Dirt Particles
+            dirtTimer += gameTime.ElapsedGameTime;
+            var dirtRefresh = 500;
+            dirtOrigin = new Vector2(Bounds.X + Bounds.Width / 4, Bounds.Y + Bounds.Height - 10);
+            if(speed_state != SpeedState.Boost && dirtTimer.TotalMilliseconds > dirtRefresh)
+                dirtParticleSystem = newDirtParticleSystem(game.GraphicsDevice, 1, dirtParticle, Vector2.Zero);
+
             // Update the player state based on input
             if (keyboard.IsKeyDown(Keys.Up))
             {
                 prev_moving_state = moving_state;
                 moving_state = MovingState.North;
                 curPosition.Y -= delta * PLAYER_SPEED * speedVar;
+                if(speed_state == SpeedState.Boost && dirtTimer.TotalMilliseconds > dirtRefresh)
+                    dirtParticleSystem = newDirtParticleSystem(game.GraphicsDevice, 50, dirtParticle, new Vector2(0, -1));
             }
             else if (keyboard.IsKeyDown(Keys.Left))
             {
                 prev_moving_state = moving_state;
                 moving_state = MovingState.West;
                 curPosition.X -= delta * PLAYER_SPEED * speedVar;
+                if (speed_state == SpeedState.Boost && dirtTimer.TotalMilliseconds > dirtRefresh)
+                    dirtParticleSystem = newDirtParticleSystem(game.GraphicsDevice, 50, dirtParticle, new Vector2(-1, 0));
             }
             else if (keyboard.IsKeyDown(Keys.Right))
             {
                 prev_moving_state = moving_state;
                 moving_state = MovingState.East;
                 curPosition.X += delta * PLAYER_SPEED * speedVar;
+                if (speed_state == SpeedState.Boost && dirtTimer.TotalMilliseconds > dirtRefresh)
+                    dirtParticleSystem = newDirtParticleSystem(game.GraphicsDevice, 50, dirtParticle, new Vector2(1, 0));
             }
             else if (keyboard.IsKeyDown(Keys.Down))
             {
                 prev_moving_state = moving_state;
                 moving_state = MovingState.South;
                 curPosition.Y += delta * PLAYER_SPEED * speedVar;
+                if (speed_state == SpeedState.Boost && dirtTimer.TotalMilliseconds > dirtRefresh)
+                    dirtParticleSystem = newDirtParticleSystem(game.GraphicsDevice, 50, dirtParticle, new Vector2(0, 1));
             }
             else
             {
                 moving_state = MovingState.Idle;
             }
+
+            dirtParticleSystem.Update(gameTime);
 
             if(curPosition.X < 0)
             {
@@ -320,6 +345,8 @@ namespace MonoGameWindowsStarter
                 staminaColor = Color.Blue;
 
             spriteBatch.Draw(staminaBar, new Rectangle(600, 5, staminaBarSize, 10), null, staminaColor, 0, Vector2.Zero, SpriteEffects.None, 0);
+
+            dirtParticleSystem.Draw();
             //           spriteBatch.DrawString(font, $"{staminaColor.B}", new Vector2(700, 20), Color.White);
             //           spriteBatch.DrawString(font, $"{staminaDelayTimer.TotalMilliseconds}", new Vector2(700, 0), Color.White);
             //           spriteBatch.DrawString(font, $"{drainedStaminaPenalty && !(staminaDelayTimer.TotalMilliseconds < staminaDelay)}", new Vector2(700, 20), Color.White);
@@ -340,6 +367,47 @@ namespace MonoGameWindowsStarter
         public Vector2 Position()
         {
             return new Vector2(Bounds.X, Bounds.Y);
+        }
+
+        public ParticleSystem newDirtParticleSystem(GraphicsDevice graphicsDevice, int size, Texture2D explosionParticle, Vector2 playerDirection)
+        {
+            dirtParticleSystem = new ParticleSystem(graphicsDevice, size, explosionParticle);
+            dirtParticleSystem.Emitter = new Vector2(100, 100);
+            dirtParticleSystem.SpawnPerFrame = 10;
+            // Set the SpawnParticle method
+            dirtParticleSystem.SpawnParticle = (ref Particle particle) =>
+            {
+                Vector2 particlePosition = new Vector2(
+                    MathHelper.Lerp(dirtOrigin.X - 5, dirtOrigin.X + 5, (float)random.NextDouble()), // X between this X +-5
+                    MathHelper.Lerp(dirtOrigin.Y - 3, dirtOrigin.Y + 3, (float)random.NextDouble()) // Y between this Y +-5
+                    );
+                particle.Position = particlePosition;
+                Vector2 particleVelocity = (particlePosition - dirtOrigin) * 4 - playerDirection * 2;
+                particle.Velocity = particleVelocity;
+                Vector2 particleAcceleration = 0.1f * new Vector2((float)-random.NextDouble(), (float)-random.NextDouble());
+                particle.Acceleration = particleAcceleration;
+                particle.Color = Color.White;
+                if (random.NextDouble() > .7)
+                    particle.Color = Color.WhiteSmoke;
+                if (size == 1)
+                    particle.Scale = 0f;
+                else
+                    particle.Scale = .5f;
+
+                particle.Life = 10f;
+            };
+
+            // Set the UpdateParticle method
+            dirtParticleSystem.UpdateParticle = (float deltaT, ref Particle particle) =>
+            {
+                particle.Velocity += deltaT * particle.Acceleration;
+                particle.Position += deltaT * particle.Velocity;
+                particle.Scale -= deltaT;
+                particle.Life -= 2 * deltaT;
+            };
+            dirtTimer = new TimeSpan(0);
+
+            return dirtParticleSystem;
         }
     }
 }
