@@ -39,11 +39,13 @@ namespace MonoGameWindowsStarter
         KeyboardState oldkeyboardState;
         List<iUpdateable> updateable;
         World world;
-        enum ViewState { TRANSITION_RIGHT, IDLE};
+        enum ViewState { TRANSITION_RIGHT, IDLE };
         ViewState viewState = ViewState.IDLE;
         float translationX = 0;
-        ParticleSystem particleSystem;
-        Texture2D particleTexture;
+        ParticleSystem wallParticleSystem;
+        TimeSpan wallTimer = new TimeSpan(0);
+        double wallTimeLimit = 500;
+        Texture2D particle;
         Random random = new Random();
 
         public Game()
@@ -72,7 +74,7 @@ namespace MonoGameWindowsStarter
             // TODO: Add your initialization logic here
             graphics.PreferredBackBufferWidth = 1042;
             graphics.PreferredBackBufferHeight = 768;
-            graphics.ApplyChanges();            
+            graphics.ApplyChanges();
 
             gameOver.Initialize(graphics);
             winner.Initialize(graphics);
@@ -161,34 +163,9 @@ namespace MonoGameWindowsStarter
             world.LoadContent(levels);
             gameOver.LoadContent();
             winner.LoadContent();
-
-            particleTexture = Content.Load<Texture2D>("particle");
-            particleSystem = new ParticleSystem(this.GraphicsDevice, 1000, particleTexture);
-            particleSystem.Emitter = new Vector2(100, 100);
-            particleSystem.SpawnPerFrame = 4;
-            // Set the SpawnParticle method
-            particleSystem.SpawnParticle = (ref Particle particle) =>
-            {
-                MouseState mouse = Mouse.GetState();
-                particle.Position = new Vector2(mouse.X, mouse.Y);
-                particle.Velocity = new Vector2(
-                    MathHelper.Lerp(-50, 50, (float)random.NextDouble()), // X between -50 and 50
-                    MathHelper.Lerp(0, 100, (float)random.NextDouble()) // Y between 0 and 100
-                    );
-                particle.Acceleration = 0.1f * new Vector2(0, (float)-random.NextDouble());
-                particle.Color = Color.Gold;
-                particle.Scale = 1f;
-                particle.Life = 1.0f;
-            };
-
-            // Set the UpdateParticle method
-            particleSystem.UpdateParticle = (float deltaT, ref Particle particle) =>
-            {
-                particle.Velocity += deltaT * particle.Acceleration;
-                particle.Position += deltaT * particle.Velocity;
-                particle.Scale -= deltaT;
-                particle.Life -= deltaT;
-            };
+            
+            particle = Content.Load<Texture2D>("particle");
+            wallParticleSystem = newWallParticleSystem(graphics.GraphicsDevice, 1, particle, Vector2.Zero);
         }
 
         /// <summary>
@@ -211,7 +188,7 @@ namespace MonoGameWindowsStarter
                 Exit();
             updateable = new List<iUpdateable>();
 
-            if(viewState == ViewState.IDLE)
+            if (viewState == ViewState.IDLE)
             {
                 oldkeyboardState = keyboardState;
                 keyboardState = Keyboard.GetState();
@@ -230,6 +207,13 @@ namespace MonoGameWindowsStarter
                 if (keyboardState.IsKeyDown(Keys.S) && !oldkeyboardState.IsKeyDown(Keys.S))
                 {
                     player.curPosition = current_maze.startingPosition;
+                }
+                if (keyboardState.IsKeyDown(Keys.B) && !oldkeyboardState.IsKeyDown(Keys.B))
+                {
+                    if (current_level == 1)
+                        player.curPosition = new Vector2(551, 451);
+                    if (current_level == 2)
+                        player.curPosition = new Vector2(951, 401);
                 }
 
                 if (!win && !game_over)
@@ -290,6 +274,8 @@ namespace MonoGameWindowsStarter
                                 {
                                     if (wall.isBombable)
                                     {
+                                        // Wall crumble apart particle system implemented here
+                                        wallParticleSystem = newWallParticleSystem(graphics.GraphicsDevice, 100, particle, wall.Position());
                                         wall.Bounds.X = -50;
                                         wall.Bounds.Y = -50;
                                         score += 5000;
@@ -331,6 +317,8 @@ namespace MonoGameWindowsStarter
                                 {
                                     if (wall.isBombable)
                                     {
+                                        // Wall crumble apart particle system implemented here
+                                        wallParticleSystem = newWallParticleSystem(graphics.GraphicsDevice, 100, particle, wall.Position());
                                         wall.Bounds.X = -50;
                                         wall.Bounds.Y = -50;
                                         score += 5000;
@@ -355,10 +343,15 @@ namespace MonoGameWindowsStarter
 
                     score--;
                 }
-                particleSystem.Update(gameTime);
-            } else if (viewState == ViewState.TRANSITION_RIGHT)
+
+                wallTimer += gameTime.ElapsedGameTime;
+                if (wallTimer.TotalMilliseconds > wallTimeLimit)
+                    wallParticleSystem = newWallParticleSystem(graphics.GraphicsDevice, 1, particle, Vector2.Zero);
+                wallParticleSystem.Update(gameTime);
+            }
+            else if (viewState == ViewState.TRANSITION_RIGHT)
             {
-                
+
             }
             base.Update(gameTime);
         }
@@ -387,7 +380,7 @@ namespace MonoGameWindowsStarter
             score = 10000;
             prev_maze = current_maze;
             current_level++;
-            
+
             if (levels.TryGetValue(current_level, out current_maze))
             {
                 player.curPosition = current_maze.startingPosition;
@@ -400,7 +393,7 @@ namespace MonoGameWindowsStarter
                 win = true;
                 winner_score = sum_score_prev_levels;
             }
-            
+
         }
 
         public void PreviousLevel()
@@ -438,8 +431,8 @@ namespace MonoGameWindowsStarter
             GraphicsDevice.Clear(Color.Black);
 
             // TODO: Add your drawing code here
-            
-            switch(viewState)
+
+            switch (viewState)
             {
                 case ViewState.IDLE:
                     spriteBatch.Begin();
@@ -465,7 +458,7 @@ namespace MonoGameWindowsStarter
                         // render the score in the top left of the screen
                         spriteBatch.DrawString(scoreFont, $"Score: {score}", Vector2.Zero, Color.Black);
                         player.Draw(spriteBatch);
-                        particleSystem.Draw();
+                        wallParticleSystem.Draw();
                     }
                     spriteBatch.End();
                     break;
@@ -480,11 +473,11 @@ namespace MonoGameWindowsStarter
                     //    timer += (float)gameTime.ElapsedGameTime.TotalMilliseconds;
                     //}
                     if (translationX == graphics.GraphicsDevice.Viewport.Width - 1)
-                    { 
+                    {
                         Debug.WriteLine("One More");
                     }
                     translationX++;
-                    if(translationX >= graphics.GraphicsDevice.Viewport.Width)
+                    if (translationX >= graphics.GraphicsDevice.Viewport.Width)
                     {
                         viewState = ViewState.IDLE;
                         translationX = 0;
@@ -509,6 +502,52 @@ namespace MonoGameWindowsStarter
             maze.Draw(spriteBatch);
             player.Draw(spriteBatch);
             spriteBatch.End();
+        }
+
+
+        public ParticleSystem newWallParticleSystem(GraphicsDevice graphicsDevice, int size, Texture2D wallParticle, Vector2 wallOrigin)
+        {
+            wallParticleSystem = new ParticleSystem(graphicsDevice, size, wallParticle);
+            wallParticleSystem.Emitter = new Vector2(100, 100);
+            wallParticleSystem.SpawnPerFrame = 10;
+            // Set the SpawnParticle method
+            wallParticleSystem.SpawnParticle = (ref Particle particle) =>
+            {
+                Vector2 particlePosition = new Vector2(
+                    MathHelper.Lerp(wallOrigin.X - 10, wallOrigin.X + 50, (float)random.NextDouble()), // X between wall X and 50
+                    MathHelper.Lerp(wallOrigin.Y, wallOrigin.Y + 50, (float)random.NextDouble()) // Y between wall Y and 50
+                    );
+                particle.Position = particlePosition;
+                particle.Velocity = new Vector2(
+                    MathHelper.Lerp(-20, 20, (float)random.NextDouble()), // X between -50 and 50
+                    MathHelper.Lerp(0, 100, (float)random.NextDouble()) // Y between 0 and 100
+                    );
+                particle.Acceleration = 0.1f * new Vector2(MathHelper.Lerp(-.2f, .2f, (float)random.NextDouble()), (float)-random.NextDouble());
+                double rand = random.NextDouble();
+                if (rand > .8)
+                    particle.Color = new Color(120, 106, 79);
+                else if (rand > .2) 
+                    particle.Color = new Color(194, 188, 171);
+                else
+                    particle.Color = new Color(89, 74, 53);
+                if (size == 1)
+                    particle.Scale = 0f;
+                else
+                    particle.Scale = 2f;
+                particle.Life = 1.0f;
+            };
+
+            // Set the UpdateParticle method
+            wallParticleSystem.UpdateParticle = (float deltaT, ref Particle particle) =>
+            {
+                particle.Velocity += deltaT * particle.Acceleration;
+                particle.Position += deltaT * particle.Velocity;
+                particle.Scale -= deltaT;
+                particle.Life -= deltaT;
+            };
+            wallTimer = new TimeSpan(0);
+
+            return wallParticleSystem;
         }
     }
 }

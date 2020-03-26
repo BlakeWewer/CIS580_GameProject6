@@ -4,5 +4,5 @@
 		DONE
 	- On bombs exploding
 		DONE
-	- On wall being bombed
-		NOT DONE
+	- On wall being bombed and crumbling down
+		DONE
