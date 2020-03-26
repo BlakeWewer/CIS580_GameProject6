@@ -87,13 +87,15 @@ namespace MonoGameWindowsStarter
         public float stamina;
         Texture2D staminaBar;
         Texture2D staminaBarBack;
-        double staminaDelay = 500;
+        double staminaDelay = 2000;
         TimeSpan staminaDelayTimer;
         int staminaBarSize;
         bool drainedStaminaPenalty = false;
         float speedVar = SPEED_DEFAULT;
         public SpeedState speed_state;
-        
+        TimeSpan flashTimer = new TimeSpan(0);
+        Color staminaColor = new Color(0, 0, 60);
+
 
         /// <summary>
         /// Creates a new player object
@@ -184,6 +186,7 @@ namespace MonoGameWindowsStarter
                 staminaDelayTimer = new TimeSpan(0);
                 stamina = 0;
                 speed_state = SpeedState.Penalty;
+                staminaColor = new Color(0, 0, 60);
             }
             if((keyboard.IsKeyDown(Keys.LeftAlt) || keyboard.IsKeyDown(Keys.RightAlt)) && !drainedStaminaPenalty)
             {
@@ -304,12 +307,22 @@ namespace MonoGameWindowsStarter
             spriteBatch.Draw(powerUpBarBack, new Rectangle(300, 0, 100, 20), null, Color.Black, 0, Vector2.Zero, SpriteEffects.None, 1);
             spriteBatch.Draw(powerUpBar, new Rectangle(300, 5, powerUpBarSize, 10), null, Color.Red, 0, Vector2.Zero, SpriteEffects.None, 0);
 
-            spriteBatch.DrawString(font, "Stamina: ", new Vector2(500, 0), Color.DarkBlue);
+
+            
+            spriteBatch.DrawString(font, "Stamina: ", new Vector2(535, 0), Color.DarkBlue);
             spriteBatch.Draw(staminaBarBack, new Rectangle(600, 0, 100, 20), null, Color.Black, 0, Vector2.Zero, SpriteEffects.None, 1);
-            spriteBatch.Draw(staminaBar, new Rectangle(600, 5, staminaBarSize, 10), null, Color.LightBlue, 0, Vector2.Zero, SpriteEffects.None, 0);
-            spriteBatch.DrawString(font, $"{stamina}", new Vector2(625, 0), Color.White);
-            spriteBatch.DrawString(font, $"{staminaDelayTimer.TotalMilliseconds}", new Vector2(700, 0), Color.White);
-            spriteBatch.DrawString(font, $"{drainedStaminaPenalty && !(staminaDelayTimer.TotalMilliseconds < staminaDelay)}", new Vector2(700, 20), Color.White);
+            spriteBatch.DrawString(font, $"{staminaBarSize}", new Vector2(702, 2), Color.White);
+            if(staminaColor.B < 50)
+                staminaColor.B = 60;
+            if (speed_state == SpeedState.Penalty)
+                staminaColor.B += 5;
+            else
+                staminaColor = Color.Blue;
+
+            spriteBatch.Draw(staminaBar, new Rectangle(600, 5, staminaBarSize, 10), null, staminaColor, 0, Vector2.Zero, SpriteEffects.None, 0);
+            //           spriteBatch.DrawString(font, $"{staminaColor.B}", new Vector2(700, 20), Color.White);
+            //           spriteBatch.DrawString(font, $"{staminaDelayTimer.TotalMilliseconds}", new Vector2(700, 0), Color.White);
+            //           spriteBatch.DrawString(font, $"{drainedStaminaPenalty && !(staminaDelayTimer.TotalMilliseconds < staminaDelay)}", new Vector2(700, 20), Color.White);
             //           spriteBatch.DrawString(font, $"{powerUpBarSize}", new Vector2(500, 10), Color.Black);
 
             //spriteBatch.DrawString(
